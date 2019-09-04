@@ -1,0 +1,266 @@
+apiVersion: v1
+data:
+  mongofile: |
+    conn = new Mongo();
+    db = connect("localhost:27017/Logging");
+    db.createCollection("alert", function(err, res) {
+        if (err) throw err;
+        console.log("Collection created!");
+      });
+      db.createCollection("auth_groups", function(err, res) {
+        if (err) throw err;
+        console.log("Collection created!");
+      });
+      db.createCollection("auth_user_groups", function(err, res) {
+        if (err) throw err;
+        console.log("Collection created!");
+      });
+      db.createCollection("auth_users", function(err, res) {
+        if (err) throw err;
+        console.log("Collection created!");
+      });
+      db.createCollection("counters", function(err, res) {
+        if (err) throw err;
+        console.log("Collection created!");
+      });
+      db.createCollection("dashboard", function(err, res) {
+        if (err) throw err;
+        console.log("Collection created!");
+      });
+      db.createCollection("dashboarddata", function(err, res) {
+        if (err) throw err;
+        console.log("Collection created!");
+      });
+      db.createCollection("dashboardwidgets", function(err, res) {
+        if (err) throw err;
+        console.log("Collection created!");
+      });
+      db.createCollection("log", function(err, res) {
+        if (err) throw err;
+        console.log("Collection created!");
+      });
+      db.createCollection("logstash", function(err, res) {
+        if (err) throw err;
+        console.log("Collection created!");
+      });
+      db.createCollection("user_dashboard_permissions", function(err, res) {
+        if (err) throw err;
+        console.log("Collection created!");
+      });
+      db.createCollection("widget", function(err, res) {
+        if (err) throw err;
+        console.log("Collection created!");
+        db.close();
+      });
+      var myobj = [{ name: "admin",group_id: 1, isdashboard: true,isanalysis: tr                                                                                                                                                                                                                                             ue, issettings : true},
+                    { name: "developer",group_id: 2, isdashboard: true,isanalysi                                                                                                                                                                                                                                             s: true, issettings : true}]
+      db.auth_groups.insertMany(myobj, function(err, res) {
+        if (err) throw err;
+        console.log("1 document inserted");
+
+      });
+      var myobj = [{ "username" : "admin","group_name" : "admin","user_id" : 1,"                                                                                                                                                                                                                                             group_id" : 1}]
+      db.alert_user_groups.insertMany(myobj, function(err, res) {
+        if (err) throw err;
+        console.log("1 document inserted");
+      });
+      var myobj = [{"id":1, "username" : "admin","email" : "admin@gmail.com","is                                                                                                                                                                                                                                             _superuser" : true,"is_staff" : false, "is_active":true,
+            "group_name":"admin", "group_id":1, "password":"06cf7cfa3e6d934ef753                                                                                                                                                                                                                                             63459d90c990109fc76b46e8f59ef7f8c2801da8629962404e571f68c449e69edceba3bbaf1e83f8                                                                                                                                                                                                                                             5d79f7be836c621ad99860fe5646",
+            "isemail":true}]
+      db.auth_users.insertMany(myobj, function(err, res) {
+        if (err) throw err;
+        console.log("1 document inserted");
+      });
+kind: ConfigMap
+metadata:
+  name: _NAME_-mongo
+  namespace: _NAMESPACE_
+
+
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    run: _NAME_-mongo
+  name: mongo-_NAME_
+  namespace: _NAMESPACE_
+spec:
+  serviceName: servicemongo
+  replicas: 1
+  selector:
+    matchLabels:
+      run: _NAME_-mongo
+  template:
+    metadata:
+      labels:
+        run: _NAME_-mongo
+    spec:
+      containers:
+      - image: 768683677790.dkr.ecr.ap-southeast-2.amazonaws.com/servicemongo
+        imagePullPolicy: Always
+        name: mongo
+        ports:
+        - containerPort: 27017
+        volumeMounts:
+        - name: _NAME_-data
+          mountPath: /data
+        - name: mongo-config
+          mountPath: /tmp/mongofile
+          subPath: mongofile
+      volumes:
+      - name: mongo-config
+        configMap:
+          name: _NAME_-mongo
+  volumeClaimTemplates:
+  - metadata:
+      name: _NAME_-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: _SIZE_
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    run: _NAME_-mongo
+  name: servicemongo
+  namespace: _NAMESPACE_
+spec:
+  ports:
+  - name: mongo
+    port: 27017
+    protocol: TCP
+    targetPort: 27017
+  selector:
+    run: _NAME_-mongo
+  sessionAffinity: None
+  type: ClusterIP
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    run: _NAME_-fluent
+  name: _NAME_-fluent
+  namespace: _NAMESPACE_
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: _NAME_-fluent
+  template:
+    metadata:
+      labels:
+        run: _NAME_-fluent
+    spec:
+      containers:
+      - image: 768683677790.dkr.ecr.ap-southeast-2.amazonaws.com/fluentd
+        imagePullPolicy: Always
+        name: fluent
+        ports:
+        - containerPort: 24224
+        - containerPort: 8888
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    run: _NAME_
+  name: fluent-_NAME_
+  namespace: _NAMESPACE_
+spec:
+  ports:
+  - name: fluent
+    port: 8888
+    protocol: TCP
+    targetPort: 8888
+  selector:
+    run: _NAME_-fluent
+  sessionAffinity: None
+  type: ClusterIP
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    run: _NAME_-fullservice
+  name: _NAME_-fullservice
+  namespace: _NAMESPACE_
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: _NAME_-fullservice
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        run: _NAME_-fullservice
+    spec:
+      containers:
+      - image: 768683677790.dkr.ecr.ap-southeast-2.amazonaws.com/fullservice
+        imagePullPolicy: Always
+        name: fullservice
+        ports:
+        - containerPort: 3000
+
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    run: _NAME_-fullservice
+  name: fullservice-_NAME_
+  namespace: _NAMESPACE_
+spec:
+  ports:
+  - name: fullservice
+    port: 3000
+    protocol: TCP
+    targetPort: 3000
+  selector:
+    run: _NAME_-fullservice
+  sessionAffinity: None
+  type: ClusterIP
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: _NAME_-ingress
+  namespace: _NAMESPACE_
+spec:
+  rules:
+  - host: _NAME_-fullservice.ipradr.com
+    http:
+      paths:
+      - backend:
+          serviceName: fullservice-_NAME_
+          servicePort: 3000
+        path: /
+  - host: _NAME_-fluent.ipradr.com
+    http:
+      paths:
+      - backend:
+          serviceName: fluent-_NAME_
+          servicePort: 8888
+        path: /
+
